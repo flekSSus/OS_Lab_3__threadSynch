@@ -26,9 +26,9 @@ void* marker(void * p_thr_index)
 
     srand(*thr_index);
     
+    std::cout<<"lets'go before wait\n";
     pthread_cond_wait(&cond_start_all,&mtx1);
-    std::cout<<"lets'go\n";
-    pthread_mutex_lock(&mtx1);
+    std::cout<<"lets'go after wait\n";
     for(;;)
     {
         value=rand()%arr_size;
@@ -43,11 +43,15 @@ void* marker(void * p_thr_index)
         }
         else
         {
-            std::cout<<"Thread Index:"<<*thr_index;
-            std::cout<<"\nCount of flagged el:"<<num_of_flagged;
+            std::cout<<"\nThread Index:"<<*thr_index;
+            std::cout<<"\nCount of flagged el: "<<num_of_flagged;
             std::cout<<"\nUnflagged index: "<<value;
             pthread_cond_signal(&cond_stop_this);
+            std::cout<<"\ni am here\n";
+
+            pthread_mutex_lock(&mtx1);
             pthread_cond_wait(&cond_resume,&mtx1);
+            std::cout<<"now here";
             if(*thr_index==index_to_terminate)
             {
                 for(int i(0),j(0);i<arr_size;++i)
@@ -88,16 +92,19 @@ int main()
     {
         int index(i);
         void* ptr_index(&index);
-        pthread_create(&threads[i],nullptr,marker,ptr_index);
+        pthread_create(&threads[i],nullptr,&marker,ptr_index);
     }
 
     pthread_cond_broadcast(&cond_start_all);
-    std::cout<<"d";
+    std::cout<<"\n after bcast\n";
     for(;counter_finishedT<threads_num;)
     {
+        pthread_mutex_lock(&mtx1);
         pthread_cond_wait(&cond_stop_this,&mtx1);
         ++counter_finishedT;
+        pthread_mutex_unlock(&mtx1);
     }
+    pthread_mutex_unlock(&mtx1);
 
     std::cout<<"Array output: \n";
     for(int& i:arr)
@@ -106,7 +113,9 @@ int main()
     std::cout<<"Enter index [ from 0 to "<<threads_num-1<<"] of thread in order to complete thread: ";
     std::cin>>index_to_terminate;
 
+    pthread_mutex_lock(&mtx1);
     pthread_cond_broadcast(&cond_resume);
+    pthread_mutex_unlock(&mtx1);
 
     pthread_mutex_destroy(&mtx1);
     pthread_cond_destroy(&cond_start_all);
