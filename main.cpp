@@ -12,8 +12,9 @@ std::vector<int> arr;
 std::vector<pthread_t> threads;
 
 pthread_mutex_t mtx1;
+pthread_mutex_t mtx2;
+pthread_mutex_t mtx_stream;
 pthread_cond_t cond_start_all;
-pthread_cond_t cond_start_one;
 pthread_cond_t cond_stop_this;
 pthread_cond_t cond_resume;
 
@@ -28,9 +29,9 @@ void* marker(void * p_thr_index)
 
     srand(*thr_index);
     
+    pthread_mutex_lock(&mtx1);
     pthread_cond_wait(&cond_start_all,&mtx1);
     ++counter_startedT;
-    pthread_cond_signal(&cond_start_one);
 
     for(;;)
     {
@@ -47,20 +48,20 @@ void* marker(void * p_thr_index)
         else
         {
             usleep(1000000);
+            pthread_mutex_lock(&mtx_stream);
             std::cout<<"\nThread Index:"<<*thr_index;
             std::cout<<"\nCount of flagged el: "<<num_of_flagged;
-            std::cout<<"\nUnflagged index: "<<value;
-            for(int i(0);i<5;++i)
+            std::cout<<"\nUnable to flag the index: "<<value<<'\n';
+            pthread_mutex_unlock(&mtx_stream);
+            pthread_mutex_lock(&mtx2);
             pthread_cond_signal(&cond_stop_this);
-            std::cout<<"Thread signal to stop it\n";
             pthread_cond_wait(&cond_resume,&mtx1);
-            std::cout<<"now here";
+            
             if(*thr_index==index_to_terminate)
             {
-                for(int i(0),j(0);i<arr_size;++i)
+                for(int i(0);i<arr_size;++i)
                 {
-                    j=indexes[i];
-                    arr[j]=0;
+                    arr[indexes[i]]=0;
                     pthread_mutex_unlock(&mtx1);
                 }
                 pthread_exit(nullptr);
@@ -87,43 +88,63 @@ int main()
     int counter_finishedT(0);
 
     pthread_mutex_init(&mtx1,nullptr);
+    pthread_mutex_init(&mtx2,nullptr);
+    pthread_mutex_init(&mtx_stream,nullptr);
     pthread_cond_init(&cond_start_all,nullptr);
     pthread_cond_init(&cond_stop_this,nullptr);
     pthread_cond_init(&cond_resume,nullptr);
-    pthread_cond_init(&cond_start_one,nullptr);
 
-    for(int i(0);i<threads_num;++i)
+    for(int i(1);i<threads_num+1;++i)
     {
-        int index(i);
-        void* ptr_index(&index);
+        int *index=new int(i);
+        void* ptr_index(index);
         pthread_create(&threads[i],nullptr,&marker,ptr_index);
     }
 
     while(counter_startedT!=threads_num)
         pthread_cond_broadcast(&cond_start_all);
+    pthread_mutex_lock(&mtx2);
 
     for(;counter_finishedT!=threads_num;)
     {
-    std::cout<<"Main is waiting for stop it signal\n";
+        pthread_mutex_unlock(&mtx2);
         pthread_cond_wait(&cond_stop_this,&mtx1);
         ++counter_finishedT;
     }
 
-    std::cout<<"Array output: \n";
+    pthread_mutex_lock(&mtx_stream);
+    std::cout<<"\nArray output: \n";
     for(int& i:arr)
         std::cout<<i<<' ';
+    std::cout<<'\n';
+    pthread_mutex_unlock(&mtx_stream);
    
-    std::cout<<"Enter index [ from 0 to "<<threads_num-1<<"] of thread in order to complete thread: ";
+    pthread_mutex_lock(&mtx_stream);
+    std::cout<<"Enter index [ from 1 to "<<threads_num<<"] of thread in order to complete thread: ";
+    pthread_mutex_unlock(&mtx_stream);
     std::cin>>index_to_terminate;
 
-    pthread_mutex_lock(&mtx1);
     pthread_cond_broadcast(&cond_resume);
     pthread_mutex_unlock(&mtx1);
 
+    pthread_mutex_lock(&mtx_stream);
+    std::cout<<"Thread "<<index_to_terminate<<" was terminated\n";
+    pthread_mutex_unlock(&mtx_stream);
+
+    usleep(1000000);
+    pthread_mutex_lock(&mtx_stream);
+    std::cout<<"\nArray output after termination: \n";
+    for(int& i:arr)
+        std::cout<<i<<' ';
+    std::cout<<'\n';
+    pthread_mutex_unlock(&mtx_stream);
+
     pthread_mutex_destroy(&mtx1);
+    pthread_mutex_destroy(&mtx2);
+    pthread_mutex_destroy(&mtx_stream);
     pthread_cond_destroy(&cond_start_all);
     pthread_cond_destroy(&cond_stop_this);
     pthread_cond_destroy(&cond_resume);
-    
+
 }
 
