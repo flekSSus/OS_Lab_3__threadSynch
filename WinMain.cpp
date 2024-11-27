@@ -23,15 +23,14 @@ void marker(size_t id, std::vector<int>& arr)
 
 	while (true)
 	{
-		std::unique_lock<std::mutex> ul(mtx);
-		if (threadExited[id] == 1)
-		{
-			ul.unlock();
-			break;
-		}
+	    std::unique_lock<std::mutex> ul(mtx);
+	    if (threadExited[id] == 1)
+	    {
+	    	ul.unlock();
+	    	break;
+	    }
 
-		cv.wait(ul, [&]{return threadSleep[id] == 0;
-			});
+	cv.wait(ul, [&]{return threadSleep[id] == 0;});
 
 		if (threadExited[id] == 1)
 		{
@@ -81,7 +80,7 @@ int main()
 	threadExited.resize(numOfThreads, 0);
 	threadSleep.resize(numOfThreads, 0);
 
-	for(int i(1); i<numOfThreads+1;++i)
+	for(int i(0);i<numOfThreads;++i)
 		threads.push_back(std::thread(marker, i, std::ref(arr)));
 	
 	cv.notify_all();
