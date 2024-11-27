@@ -8,7 +8,6 @@
 #include <condition_variable>
 
 
-
 std::mutex mtx;
 std::condition_variable cv;
 std::vector<bool> threadExited;
@@ -104,7 +103,12 @@ int main()
 			std::cout << i << " ";
 
 		int stopId;
-		EnterStopId(stopId, numOfThreads);
+        std::cout<<"Enter id of thread in order to stop it from ( 1 to "<<numOfThreads<<") : "; 
+        std::cin>>stopId;
+        if(stopId <= 0 || stopId > max)
+        {
+            std::cout<<"Incorrect index\n";
+        }
 
 		for (size_t i = 0; i < size; i++)
 		{
